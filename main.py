@@ -3,17 +3,17 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import urllib.parse, os, requests, io, threading
 from flask import Flask
 
-# 1. الإعدادات الأساسية
+# 1. إعدادات التوكن
 TOKEN = "8720479480:AAEoAnKxceXcESdMMAZqGBNGTKh5XImxXrU"
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 user_data = {}
 
-# 2. القاموس الشامل (أضفنا الغموض وكل الأنواع)
+# 2. القاموس الشامل (أضفنا الغموض والأنواع الشاملة)
 STR = {
     'ar': {
-        'w': "مرحباً بك في بوت تصميم الأغلفة! 🎨\nأنا صديقك المساعد، اختر لغتك للبدء:",
-        'g': "رائع! الآن اختر 'تصنيف' الغلاف (Genre):",
+        'w': "مرحباً يا صديقي! 🎨 أنا بوت تصميم الأغلفة، اختر لغتك للبدء:",
+        'g': "رائع! اختر 'تصنيف' الغلاف (Genre) الشامل:",
         'p': "ممتاز! أرسل الآن وصف الغلاف بالإنجليزية (وصف طويل أو مع رابط صورة مرجعية):",
         't': "⏳ جاري الرسم... انتظر ثوانٍ قليلة يا صديقي.",
         'd': "🎨 تفضل! هذا غلافك الاحترافي:",
@@ -21,12 +21,11 @@ STR = {
         'list': [
             "أكشن 🔥", "رومانسي ❤️", "رعب 💀", 
             "غموض 🔍", "فانتازيا ✨", "خيال علمي 🤖", 
-            "دراما 🎭", "كوميدي 😂", "رياضة ⚽",
-            "شونين ⚔️", "سينين 🌑", "خارق للطبيعة 👻"
+            "دراما 🎭", "شونين ⚔️", "سينين 🌑", "خارق للطبيعة 👻"
         ]
     },
     'en': {
-        'w': "Welcome to the Cover Designer Bot! 🎨\nI'm your assistant, choose your language:",
+        'w': "Welcome friend! 🎨 I'm your designer bot, choose your language:",
         'g': "Great! Now choose the cover 'Genre':",
         'p': "Excellent! Send your description in English (Long prompts/links are okay):",
         't': "⏳ Generating... Please wait a few seconds.",
@@ -35,13 +34,12 @@ STR = {
         'list': [
             "Action 🔥", "Romance ❤️", "Horror 💀", 
             "Mystery 🔍", "Fantasy ✨", "Sci-Fi 🤖", 
-            "Drama 🎭", "Comedy 😂", "Sports ⚽",
-            "Shonen ⚔️", "Seinen 🌑", "Supernatural 👻"
+            "Drama 🎭", "Shonen ⚔️", "Seinen 🌑", "Supernatural 👻"
         ]
     }
 }
 
-# 3. الأزرار والمنطق البرمجي
+# 3. الأزرار والمنطق
 def get_l_kb():
     m = InlineKeyboardMarkup()
     m.add(InlineKeyboardButton("العربية 🇸🇦", callback_data="l_ar"), 
@@ -71,6 +69,33 @@ def set_g(c):
     user_data[c.message.chat.id]['g'] = g
     l = user_data[c.message.chat.id]['l']
     bot.edit_message_text(STR[l]['p'], c.message.chat.id, c.message.message_id)
+
+@bot.message_handler(func=lambda m: True)
+def process(m):
+    u = m.chat.id
+    if u not in user_data or 'g' not in user_data[u]:
+        bot.send_message(u, "أهلاً بك! الرجاء الضغط على /start للبدء.")
+        return
+    l, g = user_data[u]['l'], user_data[u]['g']
+    bot.send_message(u, STR[l]['t'])
+    query = urllib.parse.quote(f"{g} manga cover, {m.text}, masterpiece, high detail, 8k")
+    url = f"https://image.pollinations.ai/prompt/{query}?width=1024&height=1536&nologo=true"
+    try:
+        r = requests.get(url, timeout=55)
+        if r.status_code == 200:
+            bot.send_photo(u, io.BytesIO(r.content), caption=STR[l]['d'])
+        else: bot.send_message(u, STR[l]['e'])
+    except: bot.send_message(u, STR[l]['e'])
+
+# 4. خادم الويب (تأكد من وجود المسافة قبل return)
+@app.route('/')
+def home():
+    return "Bot is Active and Ready for Mystery!"
+
+if __name__ == "__main__":
+    threading.Thread(target=lambda: bot.polling(none_stop=True)).start()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
 
 @bot.message_handler(func=lambda m: True)
 def process(m):
